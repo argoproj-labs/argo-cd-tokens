@@ -1,0 +1,7 @@
+version: "2"
+domain: argoproj-labs.io
+repo: github.com/dpadhiar/argo-cd-tokens
+resources:
+- group: argoprojlabs
+  version: v1
+  kind: Token

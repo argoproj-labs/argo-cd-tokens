@@ -1,0 +1,7 @@
+apiVersion: argoprojlabs.argoproj-labs.io/v1
+kind: Token
+metadata:
+  name: token-sample
+spec:
+  # Add fields here
+  project: bar
