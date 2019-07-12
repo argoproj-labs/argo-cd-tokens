@@ -3,9 +3,11 @@ module github.com/dpadhiar/argo-cd-tokens
 go 1.12
 
 require (
+	github.com/argoproj/argo-cd v1.0.2 // indirect
 	github.com/go-logr/logr v0.1.0
 	github.com/onsi/ginkgo v1.8.0
 	github.com/onsi/gomega v1.5.0
+	github.com/sirupsen/logrus v1.4.2 // indirect
 	golang.org/x/net v0.0.0-20190501004415-9ce7a6920f09
 	k8s.io/api v0.0.0-20190409021203-6e4e0e4f393b
 	k8s.io/apimachinery v0.0.0-20190404173353-6a84e37a896d

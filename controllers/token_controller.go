@@ -19,9 +19,9 @@ import (
 	"context"
 	"fmt"
 
-	argocdclient "github.com/argoproj/argo-cd/pkg/apiclient"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 
@@ -45,6 +45,7 @@ func (r *TokenReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	var token argoprojlabsv1.Token
 
+	// Fills token object and catches error if not possible
 	err := r.Get(ctx, req.NamespacedName, &token)
 	if err != nil {
 		logCtx.Info(err.Error())
@@ -54,13 +55,23 @@ func (r *TokenReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	projName := token.Spec.Project
 	roleName := token.Spec.Role
 
-	conn := argocdclient.NewClientOrDie(clientOpts)
+	logCtx.Info(fmt.Sprintf("%s is the project name", projName))
+	logCtx.Info(fmt.Sprintf("%s is the role name", roleName))
+
+	// token, err := projIf.CreateToken(context.Background(), &projectpkg.ProjectTokenCreateRequest{Project: projName, Role: roleName, ExpiresIn: int64(duration.Seconds())})
+
+	// conn := argocdclient.NewClientOrDie(clientOpts)
+
+	// tokenString := "practice string"
 
 	namespaceName := types.NamespacedName{
 		Namespace: "argocd",
 		Name:      "argocd-secret",
 	}
+
 	var secret corev1.Secret
+
+	// Fills secret object and catches error if not possible
 	err = r.Get(ctx, namespaceName, &secret)
 	if err != nil {
 		logCtx.Info(err.Error())
@@ -68,10 +79,20 @@ func (r *TokenReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}
 
 	secretMsg := fmt.Sprintf("%s exists", secret.ObjectMeta.Name)
+	dataMsg := fmt.Sprintf("%s exists", secret.Data)
 	logCtx.Info(secretMsg)
-	// your logic here
+	logCtx.Info(dataMsg)
 
-	// var
+	tokenStr := "this is a string"
+	// var secret2 corev1.Secret
+	secret2, _ := r.createSecret(ctx, tokenStr, logCtx, token)
+
+	secretMsg2 := fmt.Sprintf("%s exists", secret2.ObjectMeta.Name)
+	dataMsg2 := fmt.Sprintf("%s exists", secret2.Data)
+	namespaceMsg2 := fmt.Sprintf("%s is the ns", secret2.ObjectMeta.Namespace)
+	logCtx.Info(secretMsg2)
+	logCtx.Info(dataMsg2)
+	logCtx.Info(namespaceMsg2)
 
 	return ctrl.Result{}, nil
 }
@@ -81,4 +102,39 @@ func (r *TokenReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&argoprojlabsv1.Token{}).
 		Complete(r)
+}
+
+// A helper function to create Secrets from strings
+func (r *TokenReconciler) createSecret(ctx context.Context, tknString string, logCtx logr.Logger, token argoprojlabsv1.Token) (*corev1.Secret, error) {
+
+	namespaceName := types.NamespacedName{
+		Name:      token.Spec.SecretRef.Name,
+		Namespace: token.ObjectMeta.Namespace,
+	}
+
+	var secret corev1.Secret
+
+	err := r.Get(ctx, namespaceName, &secret)
+	if err == nil {
+		logCtx.Info("Secret already exists and will be updated.")
+		err = r.Update(ctx, &secret)
+		if err != nil {
+			logCtx.Info(err.Error())
+			return nil, err
+		}
+		return &secret, nil
+	}
+
+	secret = corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      token.Spec.SecretRef.Name,
+			Namespace: token.ObjectMeta.Namespace,
+		},
+	}
+	err = r.Create(ctx, &secret)
+	if err != nil {
+		logCtx.Info(err.Error())
+		return nil, err
+	}
+	return &secret, nil
 }

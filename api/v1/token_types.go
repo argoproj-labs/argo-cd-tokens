@@ -30,12 +30,23 @@ type TokenSpec struct {
 	Project string `json:"project,omitempty"`
 
 	Role string `json:"role,omitempty"`
+
+	SecretRef SecretReference `json:"secretRef,omitempty"`
 }
 
 // TokenStatus defines the observed state of Token
 type TokenStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+}
+
+// SecretReference defines desired information of Secret objects
+type SecretReference struct {
+	Name string `json:"name,omitempty"`
+
+	Namespace string `json:"namespace,omitempty"`
+
+	Key string `json:"key,omitempty"`
 }
 
 // +kubebuilder:object:root=true
