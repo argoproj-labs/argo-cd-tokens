@@ -44,8 +44,6 @@ type TokenStatus struct {
 type SecretReference struct {
 	Name string `json:"name,omitempty"`
 
-	Namespace string `json:"namespace,omitempty"`
-
 	Key string `json:"key,omitempty"`
 }
 

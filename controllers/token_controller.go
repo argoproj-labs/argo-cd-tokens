@@ -22,6 +22,7 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 
@@ -30,10 +31,33 @@ import (
 	argoprojlabsv1 "github.com/dpadhiar/argo-cd-tokens/api/v1"
 )
 
+const (
+	updateTokenPatch = `{
+	"stringData": {
+			"%s": "%s"
+	}
+}`
+)
+
 // TokenReconciler reconciles a Token object
 type TokenReconciler struct {
 	client.Client
 	Log logr.Logger
+}
+
+// Defines our Patch object we use for updating Secrets
+type patchSecretKey struct {
+	tknString string
+	tkn       argoprojlabsv1.Token
+}
+
+func (p *patchSecretKey) Type() types.PatchType {
+	return types.MergePatchType
+}
+
+func (p *patchSecretKey) Data(obj runtime.Object) ([]byte, error) {
+	patch := fmt.Sprintf(updateTokenPatch, p.tkn.Spec.SecretRef.Key, p.tknString)
+	return []byte(patch), nil
 }
 
 // Reconcile s
@@ -52,60 +76,42 @@ func (r *TokenReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, nil
 	}
 
-	projName := token.Spec.Project
-	roleName := token.Spec.Role
-
-	logCtx.Info(fmt.Sprintf("%s is the project name", projName))
-	logCtx.Info(fmt.Sprintf("%s is the role name", roleName))
+	// conn := argocdclient.NewClientOrDie(clientOpts)
+	// TODO: projIf, err :=
 
 	// token, err := projIf.CreateToken(context.Background(), &projectpkg.ProjectTokenCreateRequest{Project: projName, Role: roleName, ExpiresIn: int64(duration.Seconds())})
 
-	// conn := argocdclient.NewClientOrDie(clientOpts)
-
 	// tokenString := "practice string"
 
-	namespaceName := types.NamespacedName{
-		Namespace: "argocd",
-		Name:      "argocd-secret",
-	}
-
-	var secret corev1.Secret
-
-	// Fills secret object and catches error if not possible
-	err = r.Get(ctx, namespaceName, &secret)
-	if err != nil {
-		logCtx.Info(err.Error())
-		return ctrl.Result{}, nil
-	}
+	tokenStr := "let's try updating now"
+	secret, _ := r.createSecret(ctx, tokenStr, logCtx, token)
 
 	secretMsg := fmt.Sprintf("%s exists", secret.ObjectMeta.Name)
 	dataMsg := fmt.Sprintf("%s exists", secret.Data)
+	namespaceMsg := fmt.Sprintf("%s is the ns", secret.ObjectMeta.Namespace)
 	logCtx.Info(secretMsg)
 	logCtx.Info(dataMsg)
-
-	tokenStr := "this is a string"
-	// var secret2 corev1.Secret
-	secret2, _ := r.createSecret(ctx, tokenStr, logCtx, token)
-
-	secretMsg2 := fmt.Sprintf("%s exists", secret2.ObjectMeta.Name)
-	dataMsg2 := fmt.Sprintf("%s exists", secret2.Data)
-	namespaceMsg2 := fmt.Sprintf("%s is the ns", secret2.ObjectMeta.Namespace)
-	logCtx.Info(secretMsg2)
-	logCtx.Info(dataMsg2)
-	logCtx.Info(namespaceMsg2)
+	logCtx.Info(namespaceMsg)
 
 	return ctrl.Result{}, nil
 }
 
+var (
+	secretOwnerKey = ".metadata.controller"
+)
+
 // SetupWithManager s
 func (r *TokenReconciler) SetupWithManager(mgr ctrl.Manager) error {
+
+	//if err := mgr.GetFieldIndexer().IndexField(&argoprojlabsv1.Token{})
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&argoprojlabsv1.Token{}).
 		Complete(r)
 }
 
 // A helper function to create Secrets from strings
-func (r *TokenReconciler) createSecret(ctx context.Context, tknString string, logCtx logr.Logger, token argoprojlabsv1.Token) (*corev1.Secret, error) {
+func (r *TokenReconciler) createSecret(ctx context.Context, tknStr string, logCtx logr.Logger, token argoprojlabsv1.Token) (*corev1.Secret, error) {
 
 	namespaceName := types.NamespacedName{
 		Name:      token.Spec.SecretRef.Name,
@@ -117,7 +123,11 @@ func (r *TokenReconciler) createSecret(ctx context.Context, tknString string, lo
 	err := r.Get(ctx, namespaceName, &secret)
 	if err == nil {
 		logCtx.Info("Secret already exists and will be updated.")
-		err = r.Update(ctx, &secret)
+		patch := &patchSecretKey{
+			tknString: tknStr,
+			tkn:       token,
+		}
+		err = r.Patch(ctx, &secret, patch)
 		if err != nil {
 			logCtx.Info(err.Error())
 			return nil, err
@@ -129,6 +139,9 @@ func (r *TokenReconciler) createSecret(ctx context.Context, tknString string, lo
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      token.Spec.SecretRef.Name,
 			Namespace: token.ObjectMeta.Namespace,
+		},
+		StringData: map[string]string{
+			token.Spec.SecretRef.Key: tknStr,
 		},
 	}
 	err = r.Create(ctx, &secret)
