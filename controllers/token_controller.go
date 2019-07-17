@@ -103,10 +103,37 @@ var (
 // SetupWithManager s
 func (r *TokenReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
-	//if err := mgr.GetFieldIndexer().IndexField(&argoprojlabsv1.Token{})
+	if err := mgr.GetFieldIndexer().IndexField(&corev1.Secret{}, "metadata.name", func(rawObj runtime.Object) []string {
+		// grab the object
+		ctx := context.Background()
+		var tknList argoprojlabsv1.TokenList
+		fmt.Println("Function was entered")
+
+		secret := rawObj.(*corev1.Secret)
+		tknNames := make([]string, 0)
+
+		err := r.List(ctx, &tknList)
+		fmt.Println(tknList.Items[0].Name)
+		if err != nil {
+			return tknNames
+		}
+
+		for _, token := range tknList.Items {
+			if secret.Name == token.Spec.SecretRef.Name {
+				//tknNames = append(tknNames, token.Name)
+				s := fmt.Sprintf("%s/%s", token.Namespace, token.Name)
+				tknNames = append(tknNames, s)
+			}
+		}
+
+		return tknNames
+	}); err != nil {
+		return err
+	}
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&argoprojlabsv1.Token{}).
+		Owns(&corev1.Secret{}).
 		Complete(r)
 }
 
