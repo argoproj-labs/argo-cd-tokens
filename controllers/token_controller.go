@@ -27,6 +27,9 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	argoprojlabsv1 "github.com/dpadhiar/argo-cd-tokens/api/v1"
 )
@@ -96,44 +99,73 @@ func (r *TokenReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	return ctrl.Result{}, nil
 }
 
-var (
-	secretOwnerKey = ".metadata.controller"
-)
-
 // SetupWithManager s
 func (r *TokenReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
-	if err := mgr.GetFieldIndexer().IndexField(&corev1.Secret{}, "metadata.name", func(rawObj runtime.Object) []string {
+	/* if err := mgr.GetFieldIndexer().IndexField(&corev1.Secret{}, "metadata.name", func(rawObj runtime.Object) []string {
 		// grab the object
 		ctx := context.Background()
 		var tknList argoprojlabsv1.TokenList
-		fmt.Println("Function was entered")
+		//fmt.Println("Function was entered")
 
 		secret := rawObj.(*corev1.Secret)
 		tknNames := make([]string, 0)
 
 		err := r.List(ctx, &tknList)
-		fmt.Println(tknList.Items[0].Name)
 		if err != nil {
 			return tknNames
 		}
 
 		for _, token := range tknList.Items {
 			if secret.Name == token.Spec.SecretRef.Name {
-				//tknNames = append(tknNames, token.Name)
-				s := fmt.Sprintf("%s/%s", token.Namespace, token.Name)
-				tknNames = append(tknNames, s)
+				//s := fmt.Sprintf("%s", token.Name)
+				fmt.Println(secret.Name)
+				tknNames = append(tknNames, secret.Name)
 			}
 		}
 
 		return tknNames
 	}); err != nil {
 		return err
-	}
+	} */
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&argoprojlabsv1.Token{}).
-		Owns(&corev1.Secret{}).
+		Watches(&source.Kind{Type: &corev1.Secret{}},
+			&handler.EnqueueRequestsFromMapFunc{
+				ToRequests: handler.ToRequestsFunc(func(a handler.MapObject) []reconcile.Request {
+
+					ctx := context.Background()
+					var tknList argoprojlabsv1.TokenList
+					//tknNames := make([]string, 0)
+					tknMatches := make([]argoprojlabsv1.Token, 0)
+
+					err := r.List(ctx, &tknList)
+					if err != nil {
+						return []reconcile.Request{}
+					}
+
+					for _, token := range tknList.Items {
+						if a.Meta.GetName() == token.Spec.SecretRef.Name {
+							fmt.Println(token.Name)
+							//tknNames = append(tknNames, token.Name)
+							tknMatches = append(tknMatches, token)
+						}
+					}
+
+					requestArr := make([]reconcile.Request, 0)
+
+					for _, token := range tknMatches {
+						namespaceName := types.NamespacedName{
+							Name:      token.Name,
+							Namespace: token.Namespace,
+						}
+						requestArr = append(requestArr, reconcile.Request{NamespacedName: namespaceName})
+					}
+
+					return requestArr
+				}),
+			}).
 		Complete(r)
 }
 

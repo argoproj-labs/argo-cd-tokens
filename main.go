@@ -61,12 +61,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	err = (&controllers.TokenReconciler{
+	if err = (&controllers.TokenReconciler{
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("Token"),
 		//Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr)
-	if err != nil {
+	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Token")
 		os.Exit(1)
 	}
