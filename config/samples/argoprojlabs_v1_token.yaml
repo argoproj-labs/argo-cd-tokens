@@ -5,8 +5,8 @@ metadata:
   namespace: argocd
 spec:
   # Add fields here
-  project: foobar
-  role: testRole
+  project: default
+  role: TestRole
   secretRef:
     name: testsecret
     key: testkey
