@@ -7,6 +7,8 @@ spec:
   # Add fields here
   project: default
   role: TestRole
+  argocdendpt: https://10.107.242.190/api/v1/projects/
+  expiresin: 10
   secretRef:
     name: testsecret
     key: testkey

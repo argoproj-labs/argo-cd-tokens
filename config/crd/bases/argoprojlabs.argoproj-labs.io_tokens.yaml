@@ -384,6 +384,20 @@ spec:
               type: string
           type: object
         spec:
+          properties:
+            project:
+              type: string
+            role:
+              type: string
+            secretRef:
+              properties:
+                key:
+                  type: string
+                name:
+                  type: string
+              type: object
+            url:
+              type: string
           type: object
         status:
           type: object

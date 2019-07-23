@@ -76,6 +76,11 @@ type PostRequest struct {
 	Role      string
 }
 
+// Token used to store token string generated from ArgoCD
+type Token struct {
+	Token string
+}
+
 // AppProject provides a logical grouping of applications, providing controls for:
 // * where the apps may deploy to (cluster whitelist)
 // * what may be deployed (repository whitelist, resource whitelist/blacklist)
@@ -158,7 +163,10 @@ func (r *TokenReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}
 	client := &http.Client{Transport: transCfg}
 
-	request, err := http.NewRequest("GET", "https://10.107.242.190/api/v1/projects/default", nil)
+	argoURL := token.Spec.ArgoCDEndpt
+	argoURL = fmt.Sprint(argoURL, token.Spec.Project)
+
+	request, err := http.NewRequest("GET", argoURL, nil)
 
 	loginCookie := http.Cookie{
 		Name:     "argocd.token",
@@ -193,7 +201,7 @@ func (r *TokenReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}
 
 	postReq := PostRequest{
-		ExpiresIn: 10,
+		ExpiresIn: token.Spec.ExpiresIn,
 		Project:   token.Spec.Project,
 		Role:      token.Spec.Role,
 	}
@@ -204,7 +212,9 @@ func (r *TokenReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, nil
 	}
 
-	request, err = http.NewRequest("POST", "https://10.107.242.190/api/v1/projects/default/roles/TestRole/token", bytes.NewBuffer(bytePostReq))
+	argoURL = fmt.Sprint(argoURL, "/roles/", token.Spec.Role, "/token")
+
+	request, err = http.NewRequest("POST", argoURL, bytes.NewBuffer(bytePostReq))
 	if err != nil {
 		logCtx.Info(err.Error())
 		return ctrl.Result{}, nil
@@ -226,10 +236,14 @@ func (r *TokenReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, nil
 	}
 
-	fmt.Println(string(body))
+	var tkn Token
+	err = json.Unmarshal(body, &tkn)
+	if err != nil {
+		logCtx.Info(err.Error())
+		return ctrl.Result{}, nil
+	}
 
-	tokenStr := "this will come from ArgoCD eventually"
-	secret, wasPatched, err := r.createSecret(ctx, tokenStr, logCtx, token)
+	secret, wasPatched, err := r.createSecret(ctx, tkn.Token, logCtx, token)
 	if err != nil {
 		logCtx.Info(err.Error())
 		return ctrl.Result{}, nil
@@ -266,7 +280,7 @@ func (r *TokenReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 					for _, token := range tknList.Items {
 						if a.Meta.GetName() == token.Spec.SecretRef.Name {
-							fmt.Println(token.Name)
+							//fmt.Println(token.Name)
 							tknMatches = append(tknMatches, token)
 						}
 					}

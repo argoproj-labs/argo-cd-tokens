@@ -31,6 +31,10 @@ type TokenSpec struct {
 
 	Role string `json:"role,omitempty"`
 
+	ArgoCDEndpt string `json:"argocdendpt,omitempty"`
+
+	ExpiresIn int `json:"expiresin,omitempty"`
+
 	SecretRef SecretReference `json:"secretRef,omitempty"`
 }
 
