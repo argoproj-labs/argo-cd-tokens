@@ -79,13 +79,17 @@ func (r *TokenReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, nil
 	}
 
-	project, err := GetProject(token)
+	authTkn := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE1NjI5MDI3MjAsImlzcyI6ImFyZ29jZCIsIm5iZiI6MTU2MjkwMjcyMCwic3ViIjoiYWRtaW4ifQ.j0tOpDRSgHesKZw8Ghkzqa_yaRi5sDzqQw24a78AbPs"
+
+	argoCDClient := NewArgoCDClient(authTkn, token)
+
+	project, err := argoCDClient.GetProject()
 	if err != nil {
 		logCtx.Info(err.Error())
 		return ctrl.Result{}, nil
 	}
 
-	tknString, err := GenerateToken(project, token)
+	tknString, err := argoCDClient.GenerateToken(project)
 	if err != nil {
 		logCtx.Info(err.Error())
 		return ctrl.Result{}, nil

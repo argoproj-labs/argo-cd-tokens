@@ -86,34 +86,51 @@ type JWTToken struct {
 	ExpiresAt int64 `json:"exp,omitempty" protobuf:"int64,2,opt,name=exp"`
 }
 
-// GetProject TODO
-func GetProject(token argoprojlabsv1.Token) (AppProject, error) {
+// ArgoCDClient TODO
+type ArgoCDClient struct {
+	client      http.Client
+	loginCookie http.Cookie
+	token       argoprojlabsv1.Token
+}
 
-	// will probably be moved to a configuration
-	// https://www.socketloop.com/tutorials/golang-disable-security-check-for-http-ssl-with-bad-or-expired-certificate
+// NewArgoCDClient TODO
+func NewArgoCDClient(authTkn string, token argoprojlabsv1.Token) ArgoCDClient {
+	var argoCDClient ArgoCDClient
 	transCfg := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, // ignore expired SSL certificates
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
 	client := &http.Client{Transport: transCfg}
 
-	argoCDEndpt := token.Spec.ArgoCDEndpt
-	argoCDEndpt = fmt.Sprint(argoCDEndpt, token.Spec.Project)
-
-	request, err := http.NewRequest("GET", argoCDEndpt, nil)
+	argoCDClient.client = *client
 
 	loginCookie := http.Cookie{
 		Name:     "argocd.token",
-		Value:    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE1NjI5MDI3MjAsImlzcyI6ImFyZ29jZCIsIm5iZiI6MTU2MjkwMjcyMCwic3ViIjoiYWRtaW4ifQ.j0tOpDRSgHesKZw8Ghkzqa_yaRi5sDzqQw24a78AbPs",
+		Value:    authTkn,
 		Path:     "/",
 		MaxAge:   60 * 60,
 		HttpOnly: true,
 	}
 
-	request.AddCookie(&loginCookie)
+	argoCDClient.loginCookie = loginCookie
+
+	argoCDClient.token = token
+
+	return argoCDClient
+}
+
+// GetProject TODO
+func (a *ArgoCDClient) GetProject() (AppProject, error) {
+
+	argoCDEndpt := a.token.Spec.ArgoCDEndpt
+	argoCDEndpt = fmt.Sprint(argoCDEndpt, a.token.Spec.Project)
+
+	request, err := http.NewRequest("GET", argoCDEndpt, nil)
+
+	request.AddCookie(&a.loginCookie)
 
 	var project AppProject
 
-	response, err := client.Do(request)
+	response, err := a.client.Do(request)
 	if err != nil {
 		return project, err
 	}
@@ -134,59 +151,62 @@ func GetProject(token argoprojlabsv1.Token) (AppProject, error) {
 }
 
 // GenerateToken TODO
-func GenerateToken(project AppProject, token argoprojlabsv1.Token) (string, error) {
+func (a *ArgoCDClient) GenerateToken(project AppProject) (string, error) {
 
-	transCfg := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-	}
-	client := &http.Client{Transport: transCfg}
-
-	loginCookie := http.Cookie{
-		Name:     "argocd.token",
-		Value:    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE1NjI5MDI3MjAsImlzcyI6ImFyZ29jZCIsIm5iZiI6MTU2MjkwMjcyMCwic3ViIjoiYWRtaW4ifQ.j0tOpDRSgHesKZw8Ghkzqa_yaRi5sDzqQw24a78AbPs",
-		Path:     "/",
-		MaxAge:   60 * 60,
-		HttpOnly: true,
+	err := roleExists(a.token.Spec.Role, project)
+	if err != nil {
+		return "", err
 	}
 
-	argoCDEndpt := token.Spec.ArgoCDEndpt
-	argoCDEndpt = fmt.Sprint(argoCDEndpt, token.Spec.Project, "/roles/", token.Spec.Role, "/token")
+	argoCDEndpt := a.token.Spec.ArgoCDEndpt
+	argoCDEndpt = fmt.Sprint(argoCDEndpt, a.token.Spec.Project, "/roles/", a.token.Spec.Role, "/token")
 
 	postReq := PostRequest{
-		ExpiresIn: token.Spec.ExpiresIn,
-		Project:   token.Spec.Project,
-		Role:      token.Spec.Role,
+		ExpiresIn: a.token.Spec.ExpiresIn,
+		Project:   a.token.Spec.Project,
+		Role:      a.token.Spec.Role,
 	}
 
 	bytePostReq, err := json.Marshal(postReq)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 
 	request, err := http.NewRequest("POST", argoCDEndpt, bytes.NewBuffer(bytePostReq))
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 	request.Header.Set("Content-Type", "application/json")
-	request.AddCookie(&loginCookie)
+	request.AddCookie(&a.loginCookie)
 
-	response, err := client.Do(request)
+	response, err := a.client.Do(request)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 
 	defer response.Body.Close()
 
 	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 
 	var tkn Token
 	err = json.Unmarshal(body, &tkn)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 
 	return tkn.Token, nil
+}
+
+func roleExists(roleName string, project AppProject) error {
+
+	for i := range project.Spec.Roles {
+		if project.Spec.Roles[i].Name == roleName {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("The role does not exist")
 }
