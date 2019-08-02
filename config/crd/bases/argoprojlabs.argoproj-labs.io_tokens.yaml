@@ -385,6 +385,10 @@ spec:
           type: object
         spec:
           properties:
+            argocdendpt:
+              type: string
+            expiresin:
+              type: integer
             project:
               type: string
             role:
@@ -396,8 +400,6 @@ spec:
                 name:
                   type: string
               type: object
-            url:
-              type: string
           type: object
         status:
           type: object

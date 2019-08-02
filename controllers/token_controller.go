@@ -32,6 +32,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	argoprojlabsv1 "github.com/dpadhiar/argo-cd-tokens/api/v1"
+	"github.com/dpadhiar/argo-cd-tokens/utils/argocd"
+	"github.com/dpadhiar/argo-cd-tokens/utils/jwt"
 )
 
 const (
@@ -79,9 +81,27 @@ func (r *TokenReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, nil
 	}
 
-	authTkn := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE1NjI5MDI3MjAsImlzcyI6ImFyZ29jZCIsIm5iZiI6MTU2MjkwMjcyMCwic3ViIjoiYWRtaW4ifQ.j0tOpDRSgHesKZw8Ghkzqa_yaRi5sDzqQw24a78AbPs"
+	//authTkn := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE1NjI5MDI3MjAsImlzcyI6ImFyZ29jZCIsIm5iZiI6MTU2MjkwMjcyMCwic3ViIjoiYWRtaW4ifQ.j0tOpDRSgHesKZw8Ghkzqa_yaRi5sDzqQw24a78AbPs"
+	newTkn := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE1NjMxNTE0MTIsImlhdCI6MTU2MzE1MDgxMiwiaXNzIjoiYXJnb2NkIiwibmJmIjoxNTYzMTUwODEyLCJzdWIiOiJwcm9qOmRlZmF1bHQ6VGVzdFJvbGUifQ.A-RWmt0FBqDxjhTRAHvsFPFzxI15zr5ILsqPTD9qqrw"
+	jwt.CheckParse(newTkn)
+	tokenExpired := jwt.TokenExpired(newTkn)
+	fmt.Println(tokenExpired)
 
-	argoCDClient := NewArgoCDClient(authTkn, token)
+	namespaceName := types.NamespacedName{
+		Name:      "argocd-login",
+		Namespace: "argocd",
+	}
+
+	var loginSecret corev1.Secret
+	err = r.Get(ctx, namespaceName, &loginSecret)
+	if err != nil {
+		logCtx.Info(err.Error())
+		return ctrl.Result{}, nil
+	}
+
+	authTkn := string(loginSecret.Data["authTkn"])
+
+	argoCDClient := argocd.NewArgoCDClient(authTkn, token)
 
 	project, err := argoCDClient.GetProject()
 	if err != nil {
@@ -164,6 +184,7 @@ func (r *TokenReconciler) createSecret(ctx context.Context, tknStr string, logCt
 	var secret corev1.Secret
 
 	err := r.Get(ctx, namespaceName, &secret)
+	fmt.Println(string(secret.Data[token.Spec.SecretRef.Key]))
 	if err == nil {
 		logCtx.Info("Secret already exists and will be updated.")
 		patch := &patchSecretKey{
