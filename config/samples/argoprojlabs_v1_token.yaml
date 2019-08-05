@@ -8,7 +8,7 @@ spec:
   project: default
   role: TestRole
   argocdendpt: http://localhost:9000/api/v1/projects/
-  expiresin: 10
+  expiresin: 100
   secretRef:
     name: testsecret
     key: testkey

@@ -8,61 +8,31 @@ import (
 	jwt "github.com/dgrijalva/jwt-go"
 )
 
-// ParseIssuedAt comment
-func ParseIssuedAt(tknString string) int64 {
-	return 0
-}
-
-// CheckParse comment
-func CheckParse(tknString string) bool {
-
-	token, err := jwt.Parse(tknString, nil)
-
-	if claims, ok := token.Claims.(jwt.MapClaims); ok {
-		fmt.Println(claims["iat"])
-		tknIat, err := getIssuedAt(claims)
-		if err != nil {
-			fmt.Println(err)
-			return false
-		}
-		fmt.Println(tknIat)
-		tknExp, err := getExpiredAt(claims)
-		if err != nil {
-			fmt.Println(err)
-			return false
-		}
-		fmt.Println(tknExp)
-		currTime := time.Now().Unix()
-		fmt.Println(currTime)
-	} else {
-		fmt.Println(err)
-		return false
-	}
-
-	return true
-}
-
 // TokenExpired comment
-func TokenExpired(tknStr string) bool {
+func TokenExpired(tknStr string) (bool, error) {
 
 	token, err := jwt.Parse(tknStr, nil)
+	if token == nil {
+		fmt.Println(err)
+		return true, err
+	}
 
 	if claims, ok := token.Claims.(jwt.MapClaims); ok {
 		tknExp, err := getExpiredAt(claims)
 		if err != nil {
 			fmt.Println(err)
-			return false
+			return true, err
 		}
 		currTime := time.Now().Unix()
 		if tknExp < currTime {
-			return true
+			return true, nil
 		}
 	} else {
 		fmt.Println(err)
-		return false
+		return true, err
 	}
 
-	return false
+	return false, nil
 
 }
 

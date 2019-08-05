@@ -81,12 +81,6 @@ func (r *TokenReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, nil
 	}
 
-	//authTkn := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE1NjI5MDI3MjAsImlzcyI6ImFyZ29jZCIsIm5iZiI6MTU2MjkwMjcyMCwic3ViIjoiYWRtaW4ifQ.j0tOpDRSgHesKZw8Ghkzqa_yaRi5sDzqQw24a78AbPs"
-	newTkn := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE1NjMxNTE0MTIsImlhdCI6MTU2MzE1MDgxMiwiaXNzIjoiYXJnb2NkIiwibmJmIjoxNTYzMTUwODEyLCJzdWIiOiJwcm9qOmRlZmF1bHQ6VGVzdFJvbGUifQ.A-RWmt0FBqDxjhTRAHvsFPFzxI15zr5ILsqPTD9qqrw"
-	jwt.CheckParse(newTkn)
-	tokenExpired := jwt.TokenExpired(newTkn)
-	fmt.Println(tokenExpired)
-
 	namespaceName := types.NamespacedName{
 		Name:      "argocd-login",
 		Namespace: "argocd",
@@ -98,7 +92,6 @@ func (r *TokenReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		logCtx.Info(err.Error())
 		return ctrl.Result{}, nil
 	}
-
 	authTkn := string(loginSecret.Data["authTkn"])
 
 	argoCDClient := argocd.NewArgoCDClient(authTkn, token)
@@ -109,25 +102,53 @@ func (r *TokenReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, nil
 	}
 
+	namespaceName = types.NamespacedName{
+		Name:      token.Spec.SecretRef.Name,
+		Namespace: token.ObjectMeta.Namespace,
+	}
+
+	var tknSecret corev1.Secret
+
+	err = r.Get(ctx, namespaceName, &tknSecret)
+	if err == nil {
+		/* check if secret token is updated or not */
+		isTokenExpired, err := jwt.TokenExpired(string(tknSecret.Data[token.Spec.SecretRef.Key]))
+		if err != nil {
+			logCtx.Info(err.Error())
+			return ctrl.Result{}, nil
+		}
+		if isTokenExpired == true {
+			tknString, err := argoCDClient.GenerateToken(project)
+			if err != nil {
+				logCtx.Info(err.Error())
+				return ctrl.Result{}, nil
+			}
+			err = r.patchSecret(ctx, &tknSecret, tknString, logCtx, token)
+			if err != nil {
+				logCtx.Info(err.Error())
+				return ctrl.Result{}, nil
+			}
+			return ctrl.Result{}, nil
+		}
+
+		logCtx.Info("Secret was not updated, token still valid")
+
+	}
+
 	tknString, err := argoCDClient.GenerateToken(project)
 	if err != nil {
 		logCtx.Info(err.Error())
 		return ctrl.Result{}, nil
 	}
 
-	secret, wasPatched, err := r.createSecret(ctx, tknString, logCtx, token)
+	secret, err := r.createSecret(ctx, tknString, logCtx, token)
 	if err != nil {
 		logCtx.Info(err.Error())
 		return ctrl.Result{}, nil
 	}
 
-	if wasPatched {
-		secretMsg := fmt.Sprintf("Secret %s updated!", secret.ObjectMeta.Name)
-		logCtx.Info(secretMsg)
-	} else {
-		secretMsg := fmt.Sprintf("Secret %s created!", secret.ObjectMeta.Name)
-		logCtx.Info(secretMsg)
-	}
+	secretMsg := fmt.Sprintf("Secret %s created!", secret.ObjectMeta.Name)
+	logCtx.Info(secretMsg)
 
 	return ctrl.Result{}, nil
 }
@@ -152,7 +173,6 @@ func (r *TokenReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 					for _, token := range tknList.Items {
 						if a.Meta.GetName() == token.Spec.SecretRef.Name {
-							//fmt.Println(token.Name)
 							tknMatches = append(tknMatches, token)
 						}
 					}
@@ -174,30 +194,9 @@ func (r *TokenReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 // A helper function to create Secrets from strings
-func (r *TokenReconciler) createSecret(ctx context.Context, tknStr string, logCtx logr.Logger, token argoprojlabsv1.Token) (*corev1.Secret, bool, error) {
-
-	namespaceName := types.NamespacedName{
-		Name:      token.Spec.SecretRef.Name,
-		Namespace: token.ObjectMeta.Namespace,
-	}
+func (r *TokenReconciler) createSecret(ctx context.Context, tknStr string, logCtx logr.Logger, token argoprojlabsv1.Token) (*corev1.Secret, error) {
 
 	var secret corev1.Secret
-
-	err := r.Get(ctx, namespaceName, &secret)
-	fmt.Println(string(secret.Data[token.Spec.SecretRef.Key]))
-	if err == nil {
-		logCtx.Info("Secret already exists and will be updated.")
-		patch := &patchSecretKey{
-			tknString: tknStr,
-			tkn:       token,
-		}
-		err = r.Patch(ctx, &secret, patch)
-		if err != nil {
-			logCtx.Info(err.Error())
-			return nil, false, err
-		}
-		return &secret, true, nil
-	}
 
 	secret = corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -208,10 +207,27 @@ func (r *TokenReconciler) createSecret(ctx context.Context, tknStr string, logCt
 			token.Spec.SecretRef.Key: tknStr,
 		},
 	}
-	err = r.Create(ctx, &secret)
+	err := r.Create(ctx, &secret)
 	if err != nil {
 		logCtx.Info(err.Error())
-		return nil, false, err
+		return nil, err
 	}
-	return &secret, false, nil
+	return &secret, nil
+}
+
+func (r *TokenReconciler) patchSecret(ctx context.Context, tknSecret *corev1.Secret, tknStr string, logCtx logr.Logger, token argoprojlabsv1.Token) error {
+
+	logCtx.Info("Secret already exists and will be updated.")
+
+	patch := &patchSecretKey{
+		tknString: tknStr,
+		tkn:       token,
+	}
+	err := r.Patch(ctx, tknSecret, patch)
+	if err != nil {
+		logCtx.Info(err.Error())
+		return err
+	}
+
+	return nil
 }
