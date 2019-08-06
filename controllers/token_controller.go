@@ -18,6 +18,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -112,13 +113,14 @@ func (r *TokenReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	err = r.Get(ctx, namespaceName, &tknSecret)
 	if err == nil {
 		/* check if secret token is updated or not */
-		isTokenExpired, err := jwt.TokenExpired(string(tknSecret.Data[token.Spec.SecretRef.Key]))
+		tknString := string(tknSecret.Data[token.Spec.SecretRef.Key])
+		isTokenExpired, err := jwt.TokenExpired(tknString)
 		if err != nil {
 			logCtx.Info(err.Error())
 			return ctrl.Result{}, nil
 		}
 		if isTokenExpired == true {
-			tknString, err := argoCDClient.GenerateToken(project)
+			tknString, err = argoCDClient.GenerateToken(project)
 			if err != nil {
 				logCtx.Info(err.Error())
 				return ctrl.Result{}, nil
@@ -128,11 +130,15 @@ func (r *TokenReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 				logCtx.Info(err.Error())
 				return ctrl.Result{}, nil
 			}
-			return ctrl.Result{}, nil
+			logCtx.Info("Secret successfully updated!")
+			scheduleReconcile := ctrl.Result{RequeueAfter: time.Duration(jwt.TimeTillExpire(tknString)) * time.Second}
+			return scheduleReconcile, nil
 		}
 
 		logCtx.Info("Secret was not updated, token still valid")
-
+		//scheduleReconcile := ctrl.Result{RequeueAfter: time.Duration(jwt.TimeTillExpire(tknString)) * time.Second}
+		return ctrl.Result{}, nil
+		//return scheduleReconcile, nil
 	}
 
 	tknString, err := argoCDClient.GenerateToken(project)
@@ -150,7 +156,9 @@ func (r *TokenReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	secretMsg := fmt.Sprintf("Secret %s created!", secret.ObjectMeta.Name)
 	logCtx.Info(secretMsg)
 
-	return ctrl.Result{}, nil
+	scheduleReconcile := ctrl.Result{RequeueAfter: time.Duration(jwt.TimeTillExpire(tknString)) * time.Second}
+	//return ctrl.Result{}, nil
+	return scheduleReconcile, nil
 }
 
 // SetupWithManager s

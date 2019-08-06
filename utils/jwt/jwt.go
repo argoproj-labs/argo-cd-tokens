@@ -24,7 +24,7 @@ func TokenExpired(tknStr string) (bool, error) {
 			return true, err
 		}
 		currTime := time.Now().Unix()
-		if tknExp < currTime {
+		if tknExp <= currTime {
 			return true, nil
 		}
 	} else {
@@ -34,6 +34,24 @@ func TokenExpired(tknStr string) (bool, error) {
 
 	return false, nil
 
+}
+
+// TimeTillExpire s
+func TimeTillExpire(tknStr string) int64 {
+
+	token, _ := jwt.Parse(tknStr, nil)
+
+	if claims, ok := token.Claims.(jwt.MapClaims); ok {
+		tknExp, _ := getExpiredAt(claims)
+		currTime := time.Now().Unix()
+		timeTillExpire := tknExp - currTime
+		if timeTillExpire <= 0 {
+			return 0
+		}
+		return timeTillExpire
+	}
+
+	return 0
 }
 
 // getIssuedAt comes from argo-cd/util/jwt/jwt.go

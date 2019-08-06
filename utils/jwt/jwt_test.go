@@ -23,4 +23,7 @@ func TestTokenExpired(t *testing.T) {
 
 	invalBool, err := TokenExpired(invalidSt)
 	assert.Equal(t, true, invalBool)
+
+	yrExpTime := TimeTillExpire(yrTkn)
+	assert.NotEqual(t, 0, yrExpTime)
 }
