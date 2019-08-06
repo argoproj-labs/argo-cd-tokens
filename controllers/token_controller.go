@@ -66,7 +66,7 @@ func (p *patchSecretKey) Data(obj runtime.Object) ([]byte, error) {
 	return []byte(patch), nil
 }
 
-// Reconcile s
+// Reconcile checks if our Secret exists and generates a new Secret or updates a current one
 // +kubebuilder:rbac:groups=argoprojlabs.argoproj-labs.io,resources=tokens,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=argoprojlabs.argoproj-labs.io,resources=tokens/status,verbs=get;update;patch
 func (r *TokenReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
@@ -112,7 +112,6 @@ func (r *TokenReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	err = r.Get(ctx, namespaceName, &tknSecret)
 	if err == nil {
-		/* check if secret token is updated or not */
 		tknString := string(tknSecret.Data[token.Spec.SecretRef.Key])
 		isTokenExpired, err := jwt.TokenExpired(tknString)
 		if err != nil {
@@ -136,9 +135,7 @@ func (r *TokenReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		}
 
 		logCtx.Info("Secret was not updated, token still valid")
-		//scheduleReconcile := ctrl.Result{RequeueAfter: time.Duration(jwt.TimeTillExpire(tknString)) * time.Second}
 		return ctrl.Result{}, nil
-		//return scheduleReconcile, nil
 	}
 
 	tknString, err := argoCDClient.GenerateToken(project)
@@ -157,7 +154,6 @@ func (r *TokenReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	logCtx.Info(secretMsg)
 
 	scheduleReconcile := ctrl.Result{RequeueAfter: time.Duration(jwt.TimeTillExpire(tknString)) * time.Second}
-	//return ctrl.Result{}, nil
 	return scheduleReconcile, nil
 }
 
@@ -223,6 +219,7 @@ func (r *TokenReconciler) createSecret(ctx context.Context, tknStr string, logCt
 	return &secret, nil
 }
 
+// patchSecret updates an expired token within a Secret with a new oen
 func (r *TokenReconciler) patchSecret(ctx context.Context, tknSecret *corev1.Secret, tknStr string, logCtx logr.Logger, token argoprojlabsv1.Token) error {
 
 	logCtx.Info("Secret already exists and will be updated.")

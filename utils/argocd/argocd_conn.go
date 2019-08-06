@@ -86,14 +86,14 @@ type JWTToken struct {
 	ExpiresAt int64 `json:"exp,omitempty" protobuf:"int64,2,opt,name=exp"`
 }
 
-// ArgoCDClient TODO
+// ArgoCDClient holds our client, the cookie used to login and a token object
 type ArgoCDClient struct {
 	client      http.Client
 	loginCookie http.Cookie
 	token       argoprojlabsv1.Token
 }
 
-// NewArgoCDClient TODO
+// NewArgoCDClient constructs an ArgoCDClient object
 func NewArgoCDClient(authTkn string, token argoprojlabsv1.Token) ArgoCDClient {
 	var argoCDClient ArgoCDClient
 	transCfg := &http.Transport{
@@ -118,7 +118,7 @@ func NewArgoCDClient(authTkn string, token argoprojlabsv1.Token) ArgoCDClient {
 	return argoCDClient
 }
 
-// GetProject TODO
+// GetProject pings ArgoCD for the project which we will create a token for
 func (a *ArgoCDClient) GetProject() (AppProject, error) {
 
 	argoCDEndpt := a.token.Spec.ArgoCDEndpt
@@ -150,7 +150,7 @@ func (a *ArgoCDClient) GetProject() (AppProject, error) {
 	return project, nil
 }
 
-// GenerateToken TODO
+// GenerateToken uses a project to create a token pertaining to a specified role
 func (a *ArgoCDClient) GenerateToken(project AppProject) (string, error) {
 
 	err := roleExists(a.token.Spec.Role, project)
@@ -200,6 +200,7 @@ func (a *ArgoCDClient) GenerateToken(project AppProject) (string, error) {
 	return tkn.Token, nil
 }
 
+// check if the role exists within the given project
 func roleExists(roleName string, project AppProject) error {
 
 	for i := range project.Spec.Roles {

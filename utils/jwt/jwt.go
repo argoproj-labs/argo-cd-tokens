@@ -8,7 +8,7 @@ import (
 	jwt "github.com/dgrijalva/jwt-go"
 )
 
-// TokenExpired comment
+// TokenExpired returns true if the token provided is expired
 func TokenExpired(tknStr string) (bool, error) {
 
 	token, err := jwt.Parse(tknStr, nil)
@@ -36,7 +36,7 @@ func TokenExpired(tknStr string) (bool, error) {
 
 }
 
-// TimeTillExpire s
+// TimeTillExpire returns the duration of time left till the token's expirationn
 func TimeTillExpire(tknStr string) int64 {
 
 	token, _ := jwt.Parse(tknStr, nil)
