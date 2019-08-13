@@ -12,6 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	argoprojlabsv1 "github.com/dpadhiar/argo-cd-tokens/api/v1"
+	jwt "github.com/dpadhiar/argo-cd-tokens/utils/jwt"
 )
 
 // PostRequest used for RequestPayload
@@ -86,22 +87,19 @@ type JWTToken struct {
 	ExpiresAt int64 `json:"exp,omitempty" protobuf:"int64,2,opt,name=exp"`
 }
 
-// ArgoCDClient holds our client, the cookie used to login and a token object
-type ArgoCDClient struct {
+// Client holds our client, the cookie used to login and a token object
+type Client struct {
 	client      http.Client
 	loginCookie http.Cookie
 	token       argoprojlabsv1.Token
 }
 
-// NewArgoCDClient constructs an ArgoCDClient object
-func NewArgoCDClient(authTkn string, token argoprojlabsv1.Token) ArgoCDClient {
-	var argoCDClient ArgoCDClient
+// NewArgoCDClient constructs a Client object
+func NewArgoCDClient(authTkn string, token argoprojlabsv1.Token) Client {
+
 	transCfg := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
-	client := &http.Client{Transport: transCfg}
-
-	argoCDClient.client = *client
 
 	loginCookie := http.Cookie{
 		Name:     "argocd.token",
@@ -111,18 +109,19 @@ func NewArgoCDClient(authTkn string, token argoprojlabsv1.Token) ArgoCDClient {
 		HttpOnly: true,
 	}
 
-	argoCDClient.loginCookie = loginCookie
-
-	argoCDClient.token = token
+	argoCDClient := Client{
+		client:      http.Client{Transport: transCfg},
+		loginCookie: loginCookie,
+		token:       token,
+	}
 
 	return argoCDClient
 }
 
 // GetProject pings ArgoCD for the project which we will create a token for
-func (a *ArgoCDClient) GetProject() (AppProject, error) {
+func (a *Client) GetProject() (AppProject, error) {
 
-	argoCDEndpt := a.token.Spec.ArgoCDEndpt
-	argoCDEndpt = fmt.Sprint(argoCDEndpt, a.token.Spec.Project)
+	argoCDEndpt := fmt.Sprintf("%s/api/v1/projects/%s", a.token.Spec.ArgoCDEndpt, a.token.Spec.Project)
 
 	request, err := http.NewRequest("GET", argoCDEndpt, nil)
 
@@ -151,15 +150,14 @@ func (a *ArgoCDClient) GetProject() (AppProject, error) {
 }
 
 // GenerateToken uses a project to create a token pertaining to a specified role
-func (a *ArgoCDClient) GenerateToken(project AppProject) (string, error) {
+func (a *Client) GenerateToken(project AppProject) (string, error) {
 
-	err := roleExists(a.token.Spec.Role, project)
-	if err != nil {
-		return "", err
+	roleExistence := roleExists(a.token.Spec.Role, project)
+	if !roleExistence {
+		return "", fmt.Errorf("The role does not exist")
 	}
 
-	argoCDEndpt := a.token.Spec.ArgoCDEndpt
-	argoCDEndpt = fmt.Sprint(argoCDEndpt, a.token.Spec.Project, "/roles/", a.token.Spec.Role, "/token")
+	argoCDEndpt := fmt.Sprintf("%s/api/v1/projects/%s/roles/%s/token", a.token.Spec.ArgoCDEndpt, a.token.Spec.Project, a.token.Spec.Role)
 
 	postReq := PostRequest{
 		ExpiresIn: a.token.Spec.ExpiresIn,
@@ -200,14 +198,35 @@ func (a *ArgoCDClient) GenerateToken(project AppProject) (string, error) {
 	return tkn.Token, nil
 }
 
+// DeleteToken removes expired tokens from ArgoCD
+func (a *Client) DeleteToken(token string) error {
+
+	tokenIAT := jwt.ReturnIAT(token)
+
+	argoCDEndpt := fmt.Sprintf("%s/api/v1/projects/%s/roles/%s/token/%d", a.token.Spec.ArgoCDEndpt, a.token.Spec.Project, a.token.Spec.Role, tokenIAT)
+
+	request, err := http.NewRequest("DELETE", argoCDEndpt, nil)
+
+	request.AddCookie(&a.loginCookie)
+
+	response, err := a.client.Do(request)
+	if err != nil {
+		return err
+	}
+
+	defer response.Body.Close()
+
+	return err
+}
+
 // check if the role exists within the given project
-func roleExists(roleName string, project AppProject) error {
+func roleExists(roleName string, project AppProject) bool {
 
 	for i := range project.Spec.Roles {
 		if project.Spec.Roles[i].Name == roleName {
-			return nil
+			return true
 		}
 	}
 
-	return fmt.Errorf("The role does not exist")
+	return false
 }

@@ -18,6 +18,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -48,13 +49,14 @@ const (
 // TokenReconciler reconciles a Token object
 type TokenReconciler struct {
 	client.Client
-	Log logr.Logger
+	Log     logr.Logger
+	authTkn string
 }
 
 // Defines our Patch object we use for updating Secrets
 type patchSecretKey struct {
-	tknString string
-	tkn       argoprojlabsv1.Token
+	jwtTkn string
+	tkn    argoprojlabsv1.Token
 }
 
 func (p *patchSecretKey) Type() types.PatchType {
@@ -62,13 +64,14 @@ func (p *patchSecretKey) Type() types.PatchType {
 }
 
 func (p *patchSecretKey) Data(obj runtime.Object) ([]byte, error) {
-	patch := fmt.Sprintf(updateTokenPatch, p.tkn.Spec.SecretRef.Key, p.tknString)
+	patch := fmt.Sprintf(updateTokenPatch, p.tkn.Spec.SecretRef.Key, p.jwtTkn)
 	return []byte(patch), nil
 }
 
 // Reconcile checks if our Secret exists and generates a new Secret or updates a current one
 // +kubebuilder:rbac:groups=argoprojlabs.argoproj-labs.io,resources=tokens,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=argoprojlabs.argoproj-labs.io,resources=tokens/status,verbs=get;update;patch
+// +kubebuilder:rbac:resources=secrets,verbs=get;patch;create;list;watch
 func (r *TokenReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
 	logCtx := r.Log.WithValues("token", req.NamespacedName)
@@ -82,20 +85,7 @@ func (r *TokenReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, nil
 	}
 
-	namespaceName := types.NamespacedName{
-		Name:      "argocd-login",
-		Namespace: "argocd",
-	}
-
-	var loginSecret corev1.Secret
-	err = r.Get(ctx, namespaceName, &loginSecret)
-	if err != nil {
-		logCtx.Info(err.Error())
-		return ctrl.Result{}, nil
-	}
-	authTkn := string(loginSecret.Data["authTkn"])
-
-	argoCDClient := argocd.NewArgoCDClient(authTkn, token)
+	argoCDClient := argocd.NewArgoCDClient(r.authTkn, token)
 
 	project, err := argoCDClient.GetProject()
 	if err != nil {
@@ -103,7 +93,7 @@ func (r *TokenReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, nil
 	}
 
-	namespaceName = types.NamespacedName{
+	namespaceName := types.NamespacedName{
 		Name:      token.Spec.SecretRef.Name,
 		Namespace: token.ObjectMeta.Namespace,
 	}
@@ -112,25 +102,30 @@ func (r *TokenReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 	err = r.Get(ctx, namespaceName, &tknSecret)
 	if err == nil {
-		tknString := string(tknSecret.Data[token.Spec.SecretRef.Key])
-		isTokenExpired, err := jwt.TokenExpired(tknString)
+		jwtTkn := string(tknSecret.Data[token.Spec.SecretRef.Key])
+		isTokenExpired, err := jwt.TokenExpired(jwtTkn)
 		if err != nil {
 			logCtx.Info(err.Error())
 			return ctrl.Result{}, nil
 		}
-		if isTokenExpired == true {
-			tknString, err = argoCDClient.GenerateToken(project)
+		if isTokenExpired {
+			err = argoCDClient.DeleteToken(jwtTkn)
 			if err != nil {
 				logCtx.Info(err.Error())
 				return ctrl.Result{}, nil
 			}
-			err = r.patchSecret(ctx, &tknSecret, tknString, logCtx, token)
+			jwtTkn, err = argoCDClient.GenerateToken(project)
+			if err != nil {
+				logCtx.Info(err.Error())
+				return ctrl.Result{}, nil
+			}
+			err = r.patchSecret(ctx, &tknSecret, jwtTkn, logCtx, token)
 			if err != nil {
 				logCtx.Info(err.Error())
 				return ctrl.Result{}, nil
 			}
 			logCtx.Info("Secret successfully updated!")
-			scheduleReconcile := ctrl.Result{RequeueAfter: time.Duration(jwt.TimeTillExpire(tknString)) * time.Second}
+			scheduleReconcile := ctrl.Result{RequeueAfter: time.Duration(jwt.TimeTillExpire(jwtTkn)) * time.Second}
 			return scheduleReconcile, nil
 		}
 
@@ -138,13 +133,13 @@ func (r *TokenReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, nil
 	}
 
-	tknString, err := argoCDClient.GenerateToken(project)
+	jwtTkn, err := argoCDClient.GenerateToken(project)
 	if err != nil {
 		logCtx.Info(err.Error())
 		return ctrl.Result{}, nil
 	}
 
-	secret, err := r.createSecret(ctx, tknString, logCtx, token)
+	secret, err := r.createSecret(ctx, jwtTkn, logCtx, token)
 	if err != nil {
 		logCtx.Info(err.Error())
 		return ctrl.Result{}, nil
@@ -153,12 +148,15 @@ func (r *TokenReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	secretMsg := fmt.Sprintf("Secret %s created!", secret.ObjectMeta.Name)
 	logCtx.Info(secretMsg)
 
-	scheduleReconcile := ctrl.Result{RequeueAfter: time.Duration(jwt.TimeTillExpire(tknString)) * time.Second}
+	scheduleReconcile := ctrl.Result{RequeueAfter: time.Duration(jwt.TimeTillExpire(jwtTkn)) * time.Second}
 	return scheduleReconcile, nil
 }
 
-// SetupWithManager s
+// SetupWithManager sets up secrets to be watched and gets auth tkn to login to argocd
 func (r *TokenReconciler) SetupWithManager(mgr ctrl.Manager) error {
+
+	r.authTkn = os.Getenv("AUTH_TKN")
+	fmt.Println(r.authTkn)
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&argoprojlabsv1.Token{}).
@@ -167,31 +165,31 @@ func (r *TokenReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				ToRequests: handler.ToRequestsFunc(func(a handler.MapObject) []reconcile.Request {
 
 					ctx := context.Background()
-					var tknList argoprojlabsv1.TokenList
+					var allTkns argoprojlabsv1.TokenList
 					tknMatches := make([]argoprojlabsv1.Token, 0)
 
-					err := r.List(ctx, &tknList)
+					err := r.List(ctx, &allTkns)
 					if err != nil {
 						return []reconcile.Request{}
 					}
 
-					for _, token := range tknList.Items {
+					for _, token := range allTkns.Items {
 						if a.Meta.GetName() == token.Spec.SecretRef.Name {
 							tknMatches = append(tknMatches, token)
 						}
 					}
 
-					requestArr := make([]reconcile.Request, 0)
+					requests := make([]reconcile.Request, 0)
 
 					for _, token := range tknMatches {
 						namespaceName := types.NamespacedName{
 							Name:      token.Name,
 							Namespace: token.Namespace,
 						}
-						requestArr = append(requestArr, reconcile.Request{NamespacedName: namespaceName})
+						requests = append(requests, reconcile.Request{NamespacedName: namespaceName})
 					}
 
-					return requestArr
+					return requests
 				}),
 			}).
 		Complete(r)
@@ -225,8 +223,8 @@ func (r *TokenReconciler) patchSecret(ctx context.Context, tknSecret *corev1.Sec
 	logCtx.Info("Secret already exists and will be updated.")
 
 	patch := &patchSecretKey{
-		tknString: tknStr,
-		tkn:       token,
+		jwtTkn: tknStr,
+		tkn:    token,
 	}
 	err := r.Patch(ctx, tknSecret, patch)
 	if err != nil {
