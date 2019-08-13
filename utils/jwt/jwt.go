@@ -9,9 +9,9 @@ import (
 )
 
 // TokenExpired returns true if the token provided is expired
-func TokenExpired(tknStr string) (bool, error) {
+func TokenExpired(token string) (bool, error) {
 
-	jwtTkn, err := jwt.Parse(tknStr, nil)
+	jwtTkn, err := jwt.Parse(token, nil)
 	if jwtTkn == nil {
 		//fmt.Println(err)
 		return true, err
@@ -37,9 +37,9 @@ func TokenExpired(tknStr string) (bool, error) {
 }
 
 // TimeTillExpire returns the duration of time left till the token's expirationn
-func TimeTillExpire(tknStr string) int64 {
+func TimeTillExpire(token string) int64 {
 
-	jwtTkn, _ := jwt.Parse(tknStr, nil)
+	jwtTkn, _ := jwt.Parse(token, nil)
 
 	if claims, ok := jwtTkn.Claims.(jwt.MapClaims); ok {
 		tknExp, _ := getExpiredAt(claims)
@@ -55,9 +55,9 @@ func TimeTillExpire(tknStr string) int64 {
 }
 
 // ReturnIAT will provide the issued for a token
-func ReturnIAT(tknStr string) int64 {
+func ReturnIAT(token string) int64 {
 
-	jwtTkn, _ := jwt.Parse(tknStr, nil)
+	jwtTkn, _ := jwt.Parse(token, nil)
 
 	if claims, ok := jwtTkn.Claims.(jwt.MapClaims); ok {
 		tknIat, _ := getIssuedAt(claims)
