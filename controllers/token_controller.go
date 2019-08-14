@@ -119,6 +119,7 @@ func (r *TokenReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 				logCtx.Info(err.Error())
 				return ctrl.Result{}, nil
 			}
+			token.Status.TokenIssuedAts = append(token.Status.TokenIssuedAts, jwt.ReturnIAT(jwtTkn))
 			err = r.patchSecret(ctx, &tknSecret, jwtTkn, logCtx, token)
 			if err != nil {
 				logCtx.Info(err.Error())
@@ -138,6 +139,8 @@ func (r *TokenReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		logCtx.Info(err.Error())
 		return ctrl.Result{}, nil
 	}
+
+	token.Status.TokenIssuedAts = append(token.Status.TokenIssuedAts, jwt.ReturnIAT(jwtTkn))
 
 	secret, err := r.createSecret(ctx, jwtTkn, logCtx, token)
 	if err != nil {
