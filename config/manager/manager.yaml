@@ -22,12 +22,6 @@ spec:
       labels:
         control-plane: controller-manager
     spec:
-      env:
-      - name: AUTH_TKN
-        valueFrom:
-          secretKeyRef:
-            name: argocd-auth-token
-            key: authTkn
       containers:
       - command:
         - /manager
@@ -42,4 +36,10 @@ spec:
           requests:
             cpu: 100m
             memory: 20Mi
+        env:
+        - name: AUTH_TKN
+          valueFrom:
+            secretKeyRef:
+              name: argocd-auth-token
+              key: authTkn
       terminationGracePeriodSeconds: 10
