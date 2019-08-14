@@ -120,7 +120,7 @@ func (r *TokenReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 				return ctrl.Result{}, nil
 			}
 			//token.Status.TokenIssuedAts = append(token.Status.TokenIssuedAts, jwt.ReturnIAT(jwtTkn))
-			fmt.Println(token.Status.TokenIssuedAts)
+			//fmt.Println(token.Status.TokenIssuedAts)
 			err = r.patchSecret(ctx, &tknSecret, jwtTkn, logCtx, token)
 			if err != nil {
 				logCtx.Info(err.Error())
