@@ -15,7 +15,7 @@ kubectl create secret generic argocd-auth-token -n argo-cd-tokens-system --from-
 ## Create Token Controller through Argo CD
 
 ```bash
-argocd app create token-controller --dest-namespace argo-cd-tokens-system --dest-server https://kubernetes.default.svc --repo github.com/dpadhiar/argo-cd-tokens --path config/default
+argocd app create token-controller --dest-namespace argo-cd-tokens-system --dest-server https://kubernetes.default.svc --repo https://github.com/dpadhiar/argo-cd-tokens --path config/default
 argocd app sync token-controller
 ```
 
