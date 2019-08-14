@@ -119,7 +119,8 @@ func (r *TokenReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 				logCtx.Info(err.Error())
 				return ctrl.Result{}, nil
 			}
-			token.Status.TokenIssuedAts = append(token.Status.TokenIssuedAts, jwt.ReturnIAT(jwtTkn))
+			//token.Status.TokenIssuedAts = append(token.Status.TokenIssuedAts, jwt.ReturnIAT(jwtTkn))
+			fmt.Println(token.Status.TokenIssuedAts)
 			err = r.patchSecret(ctx, &tknSecret, jwtTkn, logCtx, token)
 			if err != nil {
 				logCtx.Info(err.Error())
@@ -140,7 +141,8 @@ func (r *TokenReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, nil
 	}
 
-	token.Status.TokenIssuedAts = append(token.Status.TokenIssuedAts, jwt.ReturnIAT(jwtTkn))
+	//token.Status.TokenIssuedAts = append(token.Status.TokenIssuedAts, jwt.ReturnIAT(jwtTkn))
+	//fmt.Println(token.Status.TokenIssuedAts)
 
 	secret, err := r.createSecret(ctx, jwtTkn, logCtx, token)
 	if err != nil {
@@ -159,7 +161,6 @@ func (r *TokenReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 func (r *TokenReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	r.authTkn = os.Getenv("AUTH_TKN")
-	fmt.Println(r.authTkn)
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&argoprojlabsv1.Token{}).
@@ -237,3 +238,8 @@ func (r *TokenReconciler) patchSecret(ctx context.Context, tknSecret *corev1.Sec
 
 	return nil
 }
+
+/* func (r *TokenReconciler) deleteExpiredTokens(token argoprojlabsv1.Token, project argocd.AppProject) error {
+
+
+} */
