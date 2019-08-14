@@ -1,0 +1,14 @@
+apiVersion: argoprojlabs.argoproj-labs.io/v1
+kind: Token
+metadata:
+  name: token-sample
+  namespace: argocd
+spec:
+  # Add fields here
+  project: token-controller
+  role: ci-deployer
+  argocdendpt: https://cd.apps.argoproj.io
+  expiresin: 30
+  secretRef:
+    name: testsecret
+    key: testkey

@@ -1,0 +1,17 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: token-controller
+  namespace: argocd
+spec:
+  destinations:
+  - namespace: 'argo-cd-token-systems'
+    server: 'https://kubernetes.default.svc'
+  roles:
+  - name: ci-deployer
+    policies:
+    - p, proj:token-controller:ci-deployer, applications, get, token-controller/*, allow
+    - p, proj:token-controller:ci-deployer, applications, sync, token-controller/*, allow
+    - p, proj:token-controller:ci-deployer, applications, delete, token-controller/*, deny
+  sourceRepos:
+  - 'https://github.com/dpadhiar/argo-cd-tokens.git'
