@@ -4,6 +4,15 @@ metadata:
   name: token-controller
   namespace: argocd
 spec:
+  clusterResourceWhitelist:
+  - group: ""
+    kind: Namespace
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRole
+  - group: rbac.authorization.k8s.io
+    kind: ClusterRoleBinding
+  - group: apiextensions.k8s.io
+    kind: CustomResourceDefinition
   destinations:
   - namespace: 'argo-cd-token-systems'
     server: 'https://kubernetes.default.svc'
