@@ -15,7 +15,7 @@ kubectl create secret generic argocd-auth-token -n argo-cd-tokens-system --from-
 ## Create Token Controller through Argo CD
 
 ```bash
-argocd app create token-controller --dest-namespace argo-cd-tokens-system --dest-server https://kubernetes.default.svc --repo https://github.com/dpadhiar/argo-cd-tokens --path config/default
+argocd app create token-controller --dest-namespace argo-cd-tokens-system --dest-server https://kubernetes.default.svc --repo https://github.com/dpadhiar/argo-cd-tokens --path config/default --project token-controller
 argocd app sync token-controller
 ```
 
@@ -23,20 +23,31 @@ argocd app sync token-controller
 
 ```bash
 kubectl apply -f https://github.com/dpadhiar/argo-cd-tokens/blob/master/demo/deployment-without-secret.yaml
-kubectl exec -it <POD_NAME> /bin/sh
+kubectl exec -it <POD_NAME> /bin/bash
 argocd get token-controller
+```
+
+The following command will fail because the deployment does not have any the AUTH_TKN set.
+```bash
+argocd app --server cd.apps.argoproj.io:443 --grpc-web --auth-token $AUTH_TKN get token-controller
 ```
 
 ## Create Token CRD instance
 
 ```bash
-kubectl apply -f https://github.com/dpadhiar/argo-cd-tokens/blob/master/demo/token.yaml
+kubectl apply -f https://raw.githubusercontent.com/dpadhiar/argo-cd-tokens/master/demo/token.yaml
 ```
 
 ## Modify Deployment to mount the generated token `kubectl apply`
 
 ```bash
 kubectl apply -f https://github.com/dpadhiar/argo-cd-tokens/blob/master/demo/deployment-with-secret.yaml
-kubectl exec -it <POD_NAME> /bin/sh
-argocd get token-controller
+kubectl exec -it <POD_NAME> /bin/bash
+```
+
+The first two commands will succeed but the delete command will fail. The role for that JWT token specificed by AUTH_TKN does not have the permissions to delete the token-controller application.
+```bash
+argocd app --server cd.apps.argoproj.io:443 --grpc-web --auth-token $AUTH_TKN get token-controller
+argocd app --server cd.apps.argoproj.io:443 --grpc-web --auth-token $AUTH_TKN get token-controller sync token-controller
+argocd app --server cd.apps.argoproj.io:443 --grpc-web --auth-token $AUTH_TKN get token-controller delete token-controller
 ```

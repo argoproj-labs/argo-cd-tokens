@@ -4,11 +4,10 @@ metadata:
   name: token-sample
   namespace: argocd
 spec:
-  # Add fields here
   project: token-controller
   role: ci-deployer
   argocdendpt: https://cd.apps.argoproj.io
-  expiresin: 30
+  expiresin: 3600
   secretRef:
-    name: testsecret
-    key: testkey
+    name: ci-deployer
+    key: argocd-auth-token
