@@ -7,7 +7,7 @@ spec:
   project: token-controller
   role: ci-deployer
   argocdendpt: https://cd.apps.argoproj.io
-  expiresin: 3600
+  expiresin: 120
   secretRef:
     name: ci-deployer
     key: argocd-auth-token
