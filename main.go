@@ -19,8 +19,8 @@ import (
 	"flag"
 	"os"
 
-	argoprojlabsv1 "github.com/dpadhiar/argo-cd-tokens/api/v1"
-	"github.com/dpadhiar/argo-cd-tokens/controllers"
+	argoprojlabsv1 "github.com/argoproj-labs/argo-cd-tokens/api/v1"
+	"github.com/argoproj-labs/argo-cd-tokens/controllers"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"

@@ -22,7 +22,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	argoprojlabsv1 "github.com/dpadhiar/argo-cd-tokens/api/v1"
+	argoprojlabsv1 "github.com/argoproj-labs/argo-cd-tokens/api/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"

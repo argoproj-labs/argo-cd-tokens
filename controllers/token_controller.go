@@ -33,9 +33,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	argoprojlabsv1 "github.com/dpadhiar/argo-cd-tokens/api/v1"
-	"github.com/dpadhiar/argo-cd-tokens/utils/argocd"
-	"github.com/dpadhiar/argo-cd-tokens/utils/jwt"
+	argoprojlabsv1 "github.com/argoproj-labs/argo-cd-tokens/api/v1"
+	"github.com/argoproj-labs/argo-cd-tokens/utils/argocd"
+	"github.com/argoproj-labs/argo-cd-tokens/utils/jwt"
 )
 
 const (

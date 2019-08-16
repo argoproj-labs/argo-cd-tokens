@@ -1,4 +1,4 @@
-module github.com/dpadhiar/argo-cd-tokens
+module github.com/argoproj-labs/argo-cd-tokens
 
 go 1.12
 

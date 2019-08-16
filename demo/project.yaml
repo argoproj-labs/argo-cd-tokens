@@ -23,4 +23,4 @@ spec:
     - p, proj:token-controller:ci-deployer, applications, sync, token-controller/*, allow
     - p, proj:token-controller:ci-deployer, applications, delete, token-controller/*, deny
   sourceRepos:
-  - 'https://github.com/dpadhiar/argo-cd-tokens.git'
+  - 'https://github.com/argoproj-labs/argo-cd-tokens.git'

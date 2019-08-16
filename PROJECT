@@ -1,6 +1,6 @@
 version: "2"
 domain: argoproj-labs.io
-repo: github.com/dpadhiar/argo-cd-tokens
+repo: github.com/argoproj-labs/argo-cd-tokens
 resources:
 - group: argoprojlabs
   version: v1

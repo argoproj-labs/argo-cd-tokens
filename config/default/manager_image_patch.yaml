@@ -8,5 +8,5 @@ spec:
     spec:
       containers:
       # Change the value of image field below to your controller image URL
-      - image: dpadhiar/argo-cd-token-controller
+      - image: argoproj-labs/argo-cd-token-controller
         name: manager

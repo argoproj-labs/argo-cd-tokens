@@ -8,7 +8,7 @@
 ## Create Argo CD project declaratively
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/dpadhiar/argo-cd-tokens/master/demo/project.yaml
+kubectl apply -f https://raw.githubusercontent.com/argoproj-labs/argo-cd-tokens/master/demo/project.yaml
 ```
 
 ## Create Secret with Argo CD auth token for token controller to consume 
@@ -21,20 +21,20 @@ kubectl create secret generic argocd-auth-token -n argo-cd-tokens-system --from-
 ## Create Token Controller through Argo CD
 
 ```bash
-argocd app create token-controller --dest-namespace argo-cd-tokens-system --dest-server https://kubernetes.default.svc --repo https://github.com/dpadhiar/argo-cd-tokens --path config/default --project token-controller
+argocd app create token-controller --dest-namespace argo-cd-tokens-system --dest-server https://kubernetes.default.svc --repo https://github.com/argoproj-labs/argo-cd-tokens --path config/default --project token-controller
 argocd app sync token-controller
 ```
 
 ## Create Token CRD instance
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/dpadhiar/argo-cd-tokens/master/demo/token.yaml
+kubectl apply -f https://raw.githubusercontent.com/argoproj-labs/argo-cd-tokens/master/demo/token.yaml
 ```
 
 ## Create Deployment to mount the generated token `kubectl apply`
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/dpadhiar/argo-cd-tokens/master/demo/deployment_with_secret.yaml
+kubectl apply -f https://raw.githubusercontent.com/argoproj-labs/argo-cd-tokens/master/demo/deployment_with_secret.yaml
 kubectl exec -it <POD_NAME> /bin/bash
 ```
 

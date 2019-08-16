@@ -11,8 +11,8 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	argoprojlabsv1 "github.com/dpadhiar/argo-cd-tokens/api/v1"
-	jwt "github.com/dpadhiar/argo-cd-tokens/utils/jwt"
+	argoprojlabsv1 "github.com/argoproj-labs/argo-cd-tokens/api/v1"
+	jwt "github.com/argoproj-labs/argo-cd-tokens/utils/jwt"
 )
 
 // PostRequest used for RequestPayload
