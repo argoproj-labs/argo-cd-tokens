@@ -5,7 +5,7 @@
 - kubectl 
 - Argo CD auth token stored in environment variable `ARGOCD_AUTH_TOKEN`
 
-## Create Argo CD project declaritively
+## Create Argo CD project declaratively
 
 ```bash
 kubectl apply -f https://raw.githubusercontent.com/dpadhiar/argo-cd-tokens/master/demo/project.yaml
@@ -23,18 +23,6 @@ kubectl create secret generic argocd-auth-token -n argo-cd-tokens-system --from-
 ```bash
 argocd app create token-controller --dest-namespace argo-cd-tokens-system --dest-server https://kubernetes.default.svc --repo https://github.com/dpadhiar/argo-cd-tokens --path config/default --project token-controller
 argocd app sync token-controller
-```
-
-## Create Deployment without token secret mounted
-
-```bash
-kubectl apply -f https://raw.githubusercontent.com/dpadhiar/argo-cd-tokens/master/demo/deployment_without_secret.yaml
-kubectl exec -it <POD_NAME> /bin/bash
-```
-
-The following command will fail because the deployment does not have any the AUTH_TKN set.
-```bash
-argocd app get --server cd.apps.argoproj.io:443 --grpc-web token-controller
 ```
 
 ## Create Token CRD instance
