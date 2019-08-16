@@ -31,7 +31,7 @@ argocd app sync token-controller
 kubectl apply -f https://raw.githubusercontent.com/dpadhiar/argo-cd-tokens/master/demo/token.yaml
 ```
 
-## Modify Deployment to mount the generated token `kubectl apply`
+## Create Deployment to mount the generated token `kubectl apply`
 
 ```bash
 kubectl apply -f https://raw.githubusercontent.com/dpadhiar/argo-cd-tokens/master/demo/deployment_with_secret.yaml
